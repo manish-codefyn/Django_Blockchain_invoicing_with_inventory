@@ -1,0 +1,26 @@
+{% extends 'base_dash.html' %}
+{% block title %} Product Form - {{ site_name }}{% endblock %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3><i class="bi bi-box-seam me-2"></i>{% if object %}Update{% else %}Create{% endif %} Product</h3>
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="form-group mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i> Save
+                </button>
+                <a href="{% if object %}{% url 'products:product-detail' object.id %}{% else %}{% url 'products:product-list' %}{% endif %}" 
+                   class="btn btn-secondary">
+                    <i class="bi bi-x-circle me-1"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

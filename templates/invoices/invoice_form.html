@@ -1,0 +1,572 @@
+{% extends 'base_dash.html' %}
+{% load static crispy_forms_tags %}
+{% block page_title %}{% if object %}Edit{% else %}Create{% endif %} Invoice{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="{% static 'js/invoice_form.js' %}"></script>
+{% endblock %}
+
+{% block content %}
+<form method="post" id="invoice-form" action="{% if object %}{% url 'invoices:invoice-update' object.pk %}{% else %}{% url 'invoices:invoice-create' %}{% endif %}">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Invoice Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            {{ form.client|as_crispy_field }}
+                            <div class="form-text">
+                                <a href="{% url 'clients:client_create' %}" >Add new client</a>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                       
+                            {{ form.date_issued|as_crispy_field }}
+                        </div>
+                        <div class="col-md-3">
+                          
+                            {{ form.due_date|as_crispy_field }}
+                        </div>
+                        <div class="col-md-3">
+                        
+                            {{ form.currency|as_crispy_field }}
+                        </div>
+                        <div class="col-md-3">
+                            <div class="input-group">
+                                {{ form.tax|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="input-group">
+                                {{ form.discount|as_crispy_field }}
+                            </div>
+                        </div>
+                        {% if object %}
+                        <div class="col-md-3">
+                            {{ form.status|as_crispy_field }}
+                        </div>
+                        {% endif %}
+                        {% if object %}
+                        <div class="col-md-3">
+                            {{ form.payment_method|as_crispy_field }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Items</h5>
+                    <button type="button" class="btn btn-sm btn-primary" id="add-item-btn">
+                        <i class="bi bi-plus"></i> Add Item
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table" id="items-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30%">Description</th>
+                                    <th style="width: 15%">Quantity</th>
+                                    <th style="width: 15%">Unit Price</th>
+                                    <th style="width: 25%">Tax</th>
+                                    <th style="width: 15%">Total</th>
+                                    <th style="width: 5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if object %}
+                                    {% for item in object.items.all %}
+                                    <tr data-id="{{ forloop.counter0 }}">
+                                        <td>
+                                            <input type="hidden" name="items[{{ forloop.counter0 }}][product]" value="{{ item.product.id|default:'' }}">
+                                            <textarea class="form-control form-control-sm" name="items[{{ forloop.counter0 }}][description]" required>{{ item.description }}</textarea>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm quantity" name="items[{{ forloop.counter0 }}][quantity]" value="{{ item.quantity }}" min="0" step="0.01" required>
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm unit-price" name="items[{{ forloop.counter0 }}][unit_price]" value="{{ item.unit_price }}" min="0" step="0.01" required>
+                                        </td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" class="form-control tax-rate" name="items[{{ forloop.counter0 }}][tax]" value="{{ item.tax }}" min="0" max="100" step="0.01">
+                                                <span class="input-group-text">%</span>
+                                                <div class="form-check form-check-inline ms-2">
+                                                    <input class="form-check-input tax-included" type="checkbox" name="items[{{ forloop.counter0 }}][tax_included]" id="tax-included-{{ forloop.counter0 }}" {% if item.tax_included %}checked{% endif %}>
+                                                    <label class="form-check-label" for="tax-included-{{ forloop.counter0 }}">Incl.</label>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm item-total" value="{{ item.total }}" readonly>
+                                        </td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                             
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Notes & Terms</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        {{ form.notes|as_crispy_field }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.terms|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <span id="subtotal">0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tax (<span id="tax-rate">0</span>%):</span>
+                        <span id="tax-amount">0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>Discount:</span>
+                        <span id="discount-amount">0.00</span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-bold fs-5 border-top pt-2">
+                        <span>Total:</span>
+                        <span id="total-amount">0.00</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" name="save">
+                            <i class="bi bi-save"></i> Save Invoice
+                        </button>
+                        <button type="submit" class="btn btn-success" name="save_and_send">
+                            <i class="bi bi-send"></i> Save & Send
+                        </button>
+                        <button type="submit" class="btn btn-outline-secondary" name="save_as_draft">
+                            <i class="bi bi-file-earmark"></i> Save as Draft
+                        </button>
+                        {% if object %}
+                        <a href="{% url 'invoices:invoice-detail' object.pk %}" class="btn btn-outline-danger">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                        {% else %}
+                        <a href="{% url 'invoices:invoice-list' %}" class="btn btn-outline-danger">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Quick Add Product</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="product-select" class="form-label">Select Product</label>
+                        <select class="form-select" id="product-select">
+                            <option value="">-- Select a product --</option>
+                            {% for product in products %}
+                            <option value="{{ product.id }}" 
+                                    data-name="{{ product.name }}" 
+                                    data-description="{{ product.description }}"
+                                    data-price="{{ product.unit_price }}"
+                                    data-tax="{{ product.tax_rate }}">
+                                {{ product.name }} ({{ product.unit_price }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary w-100" id="add-product-btn">
+                        <i class="bi bi-plus"></i> Add to Invoice
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Client Modal -->
+<div class="modal fade" id="clientModal" tabindex="-1" aria-labelledby="clientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="clientModalLabel">Add New Client</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Client form would go here -->
+                <p>Client form would be loaded here via AJAX</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Save Client</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Processing Modal -->
+<div class="modal fade" id="processingModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <h5>Saving Invoice...</h5>
+                <p class="mb-0">Please wait while we save your invoice.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize date pickers
+    flatpickr('#id_date_issued', {
+        dateFormat: 'Y-m-d',
+        defaultDate: 'today'
+    });
+    
+    flatpickr('#id_due_date', {
+        dateFormat: 'Y-m-d',
+        minDate: 'today'
+    });
+    
+    // Currency change handler
+    document.getElementById('id_currency').addEventListener('change', function() {
+        updateCurrencySymbols(this.value);
+        calculateTotals();
+    });
+    
+    // Tax and discount change handlers
+    document.getElementById('id_tax').addEventListener('change', calculateTotals);
+    document.getElementById('id_discount').addEventListener('change', calculateTotals);
+    
+    // Add item button
+    document.getElementById('add-item-btn').addEventListener('click', addNewItemRow);
+    
+    // Add product button
+    document.getElementById('add-product-btn').addEventListener('click', addProductToInvoice);
+    
+    // Initialize with first item row
+    if (document.querySelectorAll('#items-table tbody tr').length === 0) {
+        addNewItemRow();
+    }
+    
+    // Calculate initial totals
+    calculateTotals();
+    
+    // Form submission handler
+    document.getElementById('invoice-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveInvoice();
+    });
+});
+
+function updateCurrencySymbols(currency) {
+    const symbols = {
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+        'JPY': '¥',
+        'INR': '₹',
+        'BTC': '₿',
+        'ETH': 'Ξ'
+    };
+    
+    const symbol = symbols[currency] || currency;
+    document.querySelectorAll('.currency-symbol').forEach(el => {
+        el.textContent = symbol;
+    });
+}
+
+function addNewItemRow() {
+    const tbody = document.querySelector('#items-table tbody');
+    const rowCount = tbody.querySelectorAll('tr').length;
+    const newRow = document.createElement('tr');
+    newRow.dataset.id = rowCount;
+    
+    newRow.innerHTML = `
+        <td>
+            <input type="hidden" name="items[${rowCount}][product]" value="">
+            <textarea class="form-control form-control-sm" name="items[${rowCount}][description]" required></textarea>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm quantity" name="items[${rowCount}][quantity]" value="1" min="0" step="0.01" required>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm unit-price" name="items[${rowCount}][unit_price]" value="0" min="0" step="0.01" required>
+        </td>
+        <td>
+            <div class="input-group input-group-sm">
+                <input type="number" class="form-control tax-rate" name="items[${rowCount}][tax]" value="0" min="0" max="100" step="0.01">
+                <span class="input-group-text">%</span>
+                <div class="form-check form-check-inline ms-2">
+                    <input class="form-check-input tax-included" type="checkbox" name="items[${rowCount}][tax_included]" id="tax-included-${rowCount}" checked>
+                    <label class="form-check-label" for="tax-included-${rowCount}">Incl.</label>
+                </div>
+            </div>
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm item-total" value="0.00" readonly>
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    
+    tbody.appendChild(newRow);
+    
+    // Add event listeners to new row
+    addItemRowEventListeners(newRow);
+}
+
+function addProductToInvoice() {
+    const productSelect = document.getElementById('product-select');
+    const selectedOption = productSelect.options[productSelect.selectedIndex];
+    
+    if (!selectedOption.value) return;
+    
+    const tbody = document.querySelector('#items-table tbody');
+    const rowCount = tbody.querySelectorAll('tr').length;
+    const newRow = document.createElement('tr');
+    newRow.dataset.id = rowCount;
+    
+    newRow.innerHTML = `
+        <td>
+            <input type="hidden" name="items[${rowCount}][product]" value="${selectedOption.value}">
+            <textarea class="form-control form-control-sm" name="items[${rowCount}][description]" required>${selectedOption.dataset.description || selectedOption.dataset.name}</textarea>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm quantity" name="items[${rowCount}][quantity]" value="1" min="0" step="0.01" required>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm unit-price" name="items[${rowCount}][unit_price]" value="${selectedOption.dataset.price}" min="0" step="0.01" required>
+        </td>
+        <td>
+            <div class="input-group input-group-sm">
+                <input type="number" class="form-control tax-rate" name="items[${rowCount}][tax]" value="${selectedOption.dataset.tax || 0}" min="0" max="100" step="0.01">
+                <span class="input-group-text">%</span>
+                <div class="form-check form-check-inline ms-2">
+                    <input class="form-check-input tax-included" type="checkbox" name="items[${rowCount}][tax_included]" id="tax-included-${rowCount}" checked>
+                    <label class="form-check-label" for="tax-included-${rowCount}">Incl.</label>
+                </div>
+            </div>
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm item-total" value="${selectedOption.dataset.price}" readonly>
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    
+    tbody.appendChild(newRow);
+    
+    // Add event listeners to new row
+    addItemRowEventListeners(newRow);
+    
+    // Reset product select
+    productSelect.selectedIndex = 0;
+    
+    // Recalculate totals
+    calculateTotals();
+}
+
+function addItemRowEventListeners(row) {
+    // Quantity and price change handlers
+    row.querySelector('.quantity').addEventListener('change', calculateItemTotal);
+    row.querySelector('.unit-price').addEventListener('change', calculateItemTotal);
+    row.querySelector('.tax-rate').addEventListener('change', calculateItemTotal);
+    row.querySelector('.tax-included').addEventListener('change', calculateItemTotal);
+    
+    // Remove item button
+    row.querySelector('.remove-item').addEventListener('click', function() {
+        row.remove();
+        renumberItemRows();
+        calculateTotals();
+    });
+    
+    // Calculate initial item total
+    calculateItemTotal.call(row);
+}
+
+function calculateItemTotal() {
+    const row = this.closest('tr');
+    const quantity = parseFloat(row.querySelector('.quantity').value) || 0;
+    const unitPrice = parseFloat(row.querySelector('.unit-price').value) || 0;
+    const taxRate = parseFloat(row.querySelector('.tax-rate').value) || 0;
+    const taxIncluded = row.querySelector('.tax-included').checked;
+    
+    let itemTotal = quantity * unitPrice;
+    
+    if (!taxIncluded && taxRate > 0) {
+        itemTotal *= (1 + (taxRate / 100));
+    }
+    
+    row.querySelector('.item-total').value = itemTotal.toFixed(2);
+    calculateTotals();
+}
+
+function renumberItemRows() {
+    const tbody = document.querySelector('#items-table tbody');
+    tbody.querySelectorAll('tr').forEach((row, index) => {
+        row.dataset.id = index;
+        
+        // Update all input names
+        row.querySelectorAll('[name^="items["]').forEach(input => {
+            const name = input.name.replace(/items\[\d+\]/, `items[${index}]`);
+            input.name = name;
+        });
+        
+        // Update checkbox IDs and labels
+        const checkbox = row.querySelector('.tax-included');
+        if (checkbox) {
+            const newId = `tax-included-${index}`;
+            checkbox.id = newId;
+            const label = row.querySelector(`label[for="${checkbox.id}"]`);
+            if (label) {
+                label.htmlFor = newId;
+            }
+        }
+    });
+}
+
+function calculateTotals() {
+    const taxRate = parseFloat(document.getElementById('id_tax').value) || 0;
+    const discount = parseFloat(document.getElementById('id_discount').value) || 0;
+    
+    // Calculate subtotal
+    let subtotal = 0;
+    document.querySelectorAll('.item-total').forEach(item => {
+        subtotal += parseFloat(item.value) || 0;
+    });
+    
+    // Calculate tax amount (applied to subtotal)
+    const taxAmount = subtotal * (taxRate / 100);
+    
+    // Calculate total
+    const total = subtotal + taxAmount - discount;
+    
+    // Update UI
+    document.getElementById('subtotal').textContent = subtotal.toFixed(2);
+    document.getElementById('tax-rate').textContent = taxRate;
+    document.getElementById('tax-amount').textContent = taxAmount.toFixed(2);
+    document.getElementById('discount-amount').textContent = discount.toFixed(2);
+    document.getElementById('total-amount').textContent = total.toFixed(2);
+}
+    // Form submission handler
+    document.getElementById('invoice-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveInvoice();
+    });
+
+
+function saveInvoice() {
+    const form = document.getElementById('invoice-form');
+    const formData = new FormData(form);
+    
+    // Collect items data
+    const items = [];
+    document.querySelectorAll('#items-table tbody tr').forEach(row => {
+        items.push({
+            description: row.querySelector('textarea[name*="description"]').value,
+            quantity: parseFloat(row.querySelector('input[name*="quantity"]').value) || 0,
+            unit_price: parseFloat(row.querySelector('input[name*="unit_price"]').value) || 0,
+            tax: parseFloat(row.querySelector('input[name*="tax"]').value) || 0,
+            tax_included: row.querySelector('input[name*="tax_included"]').checked
+        });
+    });
+    
+    // Add items to form data
+    formData.append('items_data', JSON.stringify(items));
+    
+    // Show processing modal
+    const processingModal = new bootstrap.Modal(document.getElementById('processingModal'));
+    processingModal.show();
+    
+    // Submit form
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        processingModal.hide();
+        if (data.success) {
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                window.location.reload();
+            }
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'Failed to save invoice',
+                confirmButtonColor: '#d33'
+            });
+        }
+    })
+    .catch(error => {
+        processingModal.hide();
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred while saving the invoice.',
+            confirmButtonColor: '#d33'
+        });
+        console.error('Error:', error);
+    });
+}
+
+
+</script>
+{% endblock %}

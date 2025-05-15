@@ -1,0 +1,28 @@
+{% extends 'base_dash.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>
+            <i class="bi bi-tags me-2"></i>
+            {% if object %}Update{% else %}Create{% endif %} Category
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <div class="form-group mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save me-1"></i> Save
+                </button>
+                <a href="{% if object %}{% url 'products:category-detail' object.id %}{% else %}{% url 'products:category-list' %}{% endif %}" 
+                   class="btn btn-secondary">
+                    <i class="bi bi-x-circle me-1"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

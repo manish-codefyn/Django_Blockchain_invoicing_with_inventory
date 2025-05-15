@@ -1,0 +1,34 @@
+{% extends 'base_dash.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Delete Category</h3>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-danger">
+            <h4 class="alert-heading">Warning!</h4>
+            <p>You are about to delete the category <strong>{{ object.name }}</strong>. This action cannot be undone.</p>
+            <hr>
+            <p class="mb-0">
+                <strong>{{ object.product_set.count }}</strong> product(s) are associated with this category.
+                {% if object.product_set.count > 0 %}
+                These products will <strong>not</strong> be deleted but will have their category set to blank.
+                {% endif %}
+            </p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group mt-4">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-trash me-1"></i> Confirm Delete
+                </button>
+                <a href="{% url 'products:category-detail' object.id %}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle me-1"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

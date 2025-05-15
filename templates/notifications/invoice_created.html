@@ -1,0 +1,27 @@
+{% extends "notifications/email/base.html" %}
+
+{% block title %}New Invoice Created - {{ invoice_number }}{% endblock %}
+
+{% block header %}New Invoice Created{% endblock %}
+
+{% block content %}
+<p>Hello {{ client_name }},</p>
+
+<p>A new invoice has been created for you:</p>
+
+<ul>
+    <li><strong>Invoice Number:</strong> {{ invoice_number }}</li>
+    <li><strong>Amount Due:</strong> ${{ total_amount }}</li>
+    <li><strong>Due Date:</strong> {{ due_date|date:"F j, Y" }}</li>
+</ul>
+
+<p>You can view and pay the invoice by clicking the button below:</p>
+
+<p>
+    <a href="{{ invoice_url }}" class="button" style="display:inline-block;padding:10px 20px;background-color:#007bff;color:white;text-decoration:none;border-radius:5px;">
+        View Invoice
+    </a>
+</p>
+
+<p>If you have any questions about this invoice, please reply to this email.</p>
+{% endblock %}

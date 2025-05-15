@@ -1,0 +1,308 @@
+
+{% extends "base_dash.html" %}
+{% block title %} Invoices  List - {{ site_name }}{% endblock %}
+{% load humanize %}
+{% block content %}
+
+   
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <a href="{% url 'invoices:invoice-create' %}" class="btn btn-success">
+                <i class="bi bi-plus-circle me-2"></i>Create Invoice
+            </a>
+        <form class="row g-2">
+            <div class="col-auto">
+                <select class="form-select form-select-sm" name="status">
+                    <option value="">All Statuses</option>
+                    {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <select class="form-select form-select-sm" name="client">
+                    <option value="">All Clients</option>
+                    {% for client in clients %}
+                        <option value="{{ client.id }}" {% if request.GET.client == client.id|stringformat:"s" %}selected{% endif %}>{{ client.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <input type="date" class="form-control form-control-sm" name="date_from" value="{{ request.GET.date_from }}" placeholder="From">
+            </div>
+            <div class="col-auto">
+                <input type="date" class="form-control form-control-sm" name="date_to" value="{{ request.GET.date_to }}" placeholder="To">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a href="{% url 'invoices:invoice-list' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="invoicesTable">
+                <thead>
+                    <tr>
+                        <th>Invoice #</th>
+                        <th>Client</th>
+                        <th>Date</th>
+                        <th>Due Date</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for invoice in invoices %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'invoices:invoice-detail' invoice.pk %}">{{ invoice.invoice_number }}</a>
+                            {% if invoice.is_overdue %}
+                                <span class="badge bg-danger ms-1">Overdue</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ invoice.client.name }}</td>
+                        <td>{{ invoice.date_issued|date:"M d, Y" }}</td>
+                        <td>{{ invoice.due_date|date:"M d, Y" }}</td>
+                        <td>{{ invoice.formatted_total }}</td>
+                        <td>
+                       
+                        <!-- invoice_card.html -->
+                        <div class="dropdown d-inline">
+                            <a class="badge dropdown-toggle status-badge bg-{% if invoice.status == 'paid' %}success
+                                {% elif invoice.status == 'draft' %}secondary
+                                {% elif invoice.status == 'overdue' %}danger
+                                {% else %}warning{% endif %}"
+                            href="#" role="button"
+                            id="dropdownMenu{{ invoice.id }}"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            data-invoice-id="{{ invoice.id }}"
+                            data-current-status="{{ invoice.status }}">
+                                {{ invoice.get_status_display }}
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="dropdownMenu{{ invoice.id }}">
+                                {% for key, value in invoice.STATUS_CHOICES %}
+                                    <li>
+                                        <a class="dropdown-item status-option" href="#" data-status="{{ key }}" data-invoice-id="{{ invoice.id }}">{{ value }}</a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'invoices:invoice-detail' invoice.id %}" class="btn btn-sm btn-outline-primary" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'invoices:invoice-pdf' invoice.id %}" class="btn btn-sm btn-outline-secondary" title="Download PDF">
+                                    <i class="bi bi-download"></i>
+                                </a>
+                                <a href="{% url 'invoices:invoice-update' invoice.id %}" class="btn btn-sm btn-outline-info" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <a href="{% url 'invoices:invoice-send' invoice.id %}" class="btn btn-sm btn-outline-success" title="Send Invoice">
+                                    <i class="bi bi-envelope"></i>
+                                </a>
+                                <a href="{% url 'invoices:invoice-payment-create' invoice.id %}" class="btn btn-outline-warning btn-sm" title="Add payments">
+                                    <i class="bi bi-cash-stack"></i>
+                                  
+                                </a>
+                                <form method="post" action="{% url 'invoices:invoice-delete' invoice.id %}" class="d-inline invoice-delete-form">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center">No invoices found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if is_paginated %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                    {% else %}
+                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Ensure jQuery is loaded first -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css"/>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.bootstrap5.min.css"/>
+
+<!-- DataTables JS -->
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.bootstrap5.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.print.min.js"></script>
+
+
+
+
+<script>
+$(document).ready(function() {
+    $('#invoicesTable').DataTable({
+        responsive: true,
+        dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row mt-3"<"col-md-6"l><"col-md-6"p>>',
+        buttons: [
+        
+            {
+                extend: 'csv',
+                className: 'btn btn-sm btn-outline-secondary text-white'
+            },
+            {
+                extend: 'excel',
+                className: 'btn btn-sm btn-outline-secondary text-white'
+            },
+            {
+                extend: 'pdf',
+                className: 'btn btn-sm btn-outline-secondary text-white'
+            },
+        
+        ],
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search invoices...",
+            lengthMenu: "Show _MENU_ invoices per page",
+            zeroRecords: "No matching invoices found",
+            info: "Showing _START_ to _END_ of _TOTAL_ invoices",
+            infoEmpty: "No invoices available",
+            infoFiltered: "(filtered from _MAX_ total invoices)"
+        },
+        columnDefs: [
+            { 
+                orderable: false, 
+                targets: [6] // Actions column
+            },
+            {
+                type: 'date',
+                targets: [2, 3] // Date columns
+            },
+            {
+                type: 'num',
+                targets: [4] // Amount column
+            }
+        ],
+        order: [[2, 'desc']] // Default sorting
+    });
+});
+
+// 
+
+document.addEventListener('DOMContentLoaded', function () {
+    const deleteForms = document.querySelectorAll('.invoice-delete-form');
+
+    deleteForms.forEach(form => {
+        form.addEventListener('submit', function (e) {
+            e.preventDefault(); // Prevent form from submitting
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: 'This action cannot be undone!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    form.submit(); // Proceed to delete
+                }
+            });
+        });
+    });
+});
+// 
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.status-option').forEach(function (option) {
+        option.addEventListener('click', function (e) {
+            e.preventDefault();
+
+            const newStatus = this.getAttribute('data-status');
+            const invoiceId = this.getAttribute('data-invoice-id');
+            const badge = document.querySelector(`#dropdownMenu${invoiceId}`);
+
+            fetch("{% url 'invoices:update-invoice-status' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({
+                    invoice_id: invoiceId,
+                    status: newStatus,
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update badge text
+                    badge.textContent = data.status_display;
+
+                    // Remove old status color class
+                    badge.classList.remove("bg-success", "bg-secondary", "bg-danger", "bg-warning");
+
+                    // Add new color class
+                    let badgeClass = "bg-warning";
+                    if (newStatus === "paid") badgeClass = "bg-success";
+                    else if (newStatus === "draft") badgeClass = "bg-secondary";
+                    else if (newStatus === "overdue") badgeClass = "bg-danger";
+
+                    badge.classList.add(badgeClass);
+                } else {
+                    alert(data.message || "Failed to update status.");
+                }
+            })
+            .catch(() => alert("Something went wrong."));
+        });
+    });
+});
+</script>
+
+{% endblock %}

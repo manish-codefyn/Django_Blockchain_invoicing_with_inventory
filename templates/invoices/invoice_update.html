@@ -1,0 +1,216 @@
+{% extends "base_dash.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Edit Invoice #{{ object.invoice_number }}</h2>
+    
+    <form method="post" class="mt-4">
+        {% csrf_token %}
+        
+        <!-- Include the management form data -->
+        {{ items_formset.management_form }}
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Invoice Details</h5>
+            </div>
+            <div class="card-body">
+                {{ form.as_p }}
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Invoice Items</h5>
+            </div>
+            <div class="card-body">
+                <table class="table" id="items-table">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Tax (%)</th>
+                            <th>Tax Included</th>
+                            <th>Product</th>
+                            <th>Total</th>
+                            <th>Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for form in items_formset %}
+                        <tr class="item-row">
+                            <td>{{ form.description }}{{ form.id }}</td>
+                            <td>{{ form.quantity }}</td>
+                            <td>{{ form.unit_price }}</td>
+                            <td>{{ form.tax }}</td>
+                            <td>{{ form.tax_included }}</td>
+                            <td>{{ form.product }}</td>
+                            <td class="item-total">0.00</td>
+                            <td>
+                                {% if form.instance.pk %}{{ form.DELETE }}{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="add-item">Add Item</button>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'invoices:invoice-detail' object.pk %}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add new item row
+    document.getElementById('add-item').addEventListener('click', function() {
+        const table = document.getElementById('items-table').getElementsByTagName('tbody')[0];
+        const totalForms = document.getElementById('id_items-TOTAL_FORMS');
+        const newRow = table.rows[0].cloneNode(true);
+        const formRegex = RegExp(`items-(\\d){1}-`,'g');
+        
+        // Update the index in the new row
+        const rowNum = parseInt(totalForms.value);
+        newRow.innerHTML = newRow.innerHTML.replace(formRegex, `items-${rowNum}-`);
+        
+        // Clear values in the new row
+        const inputs = newRow.querySelectorAll('input, select');
+        inputs.forEach(function(input) {
+            if (input.name.includes('description') || 
+                input.name.includes('quantity') || 
+                input.name.includes('unit_price')) {
+                input.value = '';
+            } else if (input.name.includes('tax')) {
+                input.value = '0';
+            } else if (input.name.includes('tax_included')) {
+                input.checked = true;
+            } else if (input.name.includes('DELETE')) {
+                input.checked = false;
+            }
+        });
+        
+        // Add the new row
+        table.appendChild(newRow);
+        totalForms.value = rowNum + 1;
+        
+        // Reattach event listeners
+        attachRowEventListeners(newRow);
+    });
+    
+    // Calculate totals when values change
+    function attachRowEventListeners(row) {
+        const inputs = row.querySelectorAll('input[name*="quantity"], input[name*="unit_price"]');
+        inputs.forEach(function(input) {
+            input.addEventListener('change', calculateRowTotal);
+            input.addEventListener('keyup', calculateRowTotal);
+        });
+    }
+    
+    function calculateRowTotal() {
+        const row = this.closest('tr');
+        const quantity = parseFloat(row.querySelector('input[name*="quantity"]').value) || 0;
+        const unitPrice = parseFloat(row.querySelector('input[name*="unit_price"]').value) || 0;
+        const total = quantity * unitPrice;
+        row.querySelector('.item-total').textContent = total.toFixed(2);
+    }
+    
+    // Attach event listeners to existing rows
+    document.querySelectorAll('.item-row').forEach(function(row) {
+        attachRowEventListeners(row);
+        // Calculate initial totals
+        calculateRowTotal.call(row.querySelector('input[name*="quantity"]'));
+    });
+});
+
+{% if update %}
+document.addEventListener('DOMContentLoaded', function() {
+    // Set form values from the existing invoice
+    document.getElementById('id_client').value = '{{ object.client.id }}';
+    document.getElementById('id_date_issued').value = '{{ object.date_issued|date:"Y-m-d" }}';
+    document.getElementById('id_due_date').value = '{{ object.due_date|date:"Y-m-d" }}';
+    document.getElementById('id_currency').value = '{{ object.currency }}';
+    document.getElementById('id_tax').value = '{{ object.tax|default:0 }}';
+    document.getElementById('id_discount').value = '{{ object.discount|default:0 }}';
+    document.getElementById('id_notes').value = '{{ object.notes|default:""|escapejs }}';
+    document.getElementById('id_terms').value = '{{ object.terms|default:""|escapejs }}';
+    {% if object.status %}
+    document.getElementById('id_status').value = '{{ object.status }}';
+    {% endif %}
+    
+    // Clear existing items (except the first empty row if it exists)
+    const tbody = document.querySelector('#items-table tbody');
+    tbody.innerHTML = '';
+    
+    // Add existing items
+    {% for item in object.items.all %}
+    addItemRow(
+        '{{ item.product.id|default:"" }}',
+        `{{ item.description|escapejs }}`,
+        '{{ item.quantity }}',
+        '{{ item.unit_price }}',
+        '{{ item.tax }}',
+        {% if item.tax_included %}true{% else %}false{% endif %}
+    );
+    {% endfor %}
+    
+    // If no items, add one empty row
+    if (tbody.querySelectorAll('tr').length === 0) {
+        addNewItemRow();
+    }
+    
+    // Recalculate totals
+    calculateTotals();
+});
+
+// Helper function to add existing items
+function addItemRow(productId, description, quantity, unitPrice, tax, taxIncluded) {
+    const tbody = document.querySelector('#items-table tbody');
+    const rowCount = tbody.querySelectorAll('tr').length;
+    const newRow = document.createElement('tr');
+    newRow.dataset.id = rowCount;
+    
+    newRow.innerHTML = `
+        <td>
+            <input type="hidden" name="items[${rowCount}][product]" value="${productId}">
+            <textarea class="form-control form-control-sm" name="items[${rowCount}][description]" required>${description}</textarea>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm quantity" name="items[${rowCount}][quantity]" value="${quantity}" min="0" step="0.01" required>
+        </td>
+        <td>
+            <input type="number" class="form-control form-control-sm unit-price" name="items[${rowCount}][unit_price]" value="${unitPrice}" min="0" step="0.01" required>
+        </td>
+        <td>
+            <div class="input-group input-group-sm">
+                <input type="number" class="form-control tax-rate" name="items[${rowCount}][tax]" value="${tax}" min="0" max="100" step="0.01">
+                <span class="input-group-text">%</span>
+                <div class="form-check form-check-inline ms-2">
+                    <input class="form-check-input tax-included" type="checkbox" name="items[${rowCount}][tax_included]" id="tax-included-${rowCount}" ${taxIncluded ? 'checked' : ''}>
+                    <label class="form-check-label" for="tax-included-${rowCount}">Incl.</label>
+                </div>
+            </div>
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm item-total" value="${(quantity * unitPrice).toFixed(2)}" readonly>
+        </td>
+        <td>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    `;
+    
+    tbody.appendChild(newRow);
+    addItemRowEventListeners(newRow);
+}
+{% endif %}
+</script>
+{% endblock %}
